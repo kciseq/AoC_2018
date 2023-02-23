@@ -7,13 +7,16 @@ using namespace std;
 int main ()
 {
     unsigned int i = 0;
-    long frequencies[996] = {};
-    long deviation_list[996] = {};
+    
+    int deviation_list[996] = {};
+    long frequencies[200*996] = {0};
+    int results[200*996] = {0};
     ifstream input_file("input.txt");
-    long frequency_deviation = 0;
+    int frequency_deviation = 0;
     int input_list;
     string line;
     uint8_t flag = 0;
+    unsigned int counter;
     while(input_file >> input_list){
         frequency_deviation += input_list;
         frequencies[i] = frequency_deviation;
@@ -21,21 +24,31 @@ int main ()
         i++;
     }
     cout<< "Frequency deviation equals to: "<<frequency_deviation<<endl;
-    for(unsigned int i = 1; i < 996; i++){
-        for(unsigned int j = i+3; j < 996; j++){
-            if((deviation_list[i] == deviation_list[j]) && (deviation_list[i-1] == deviation_list[j-1]) && (deviation_list[i+1] == deviation_list[j+1])){
-                cout<< "Indices of pattern edges are " << i << " " << j << endl;
-                flag = 1;
-                //break;
-            }
 
+    for(unsigned int i = 0; i < 199; i++){
+        for(unsigned int j = 0; j<996; j++){
+            frequency_deviation +=  deviation_list[j];
+            frequencies[996+(i*996)+j] = frequency_deviation;
         }
-        if (flag == 1)
-        {
-            //break;
-        }
-        
     }
+
+    for(unsigned int i = 0; i < 200 * 996; i++){
+        for(unsigned int j = i+1; j < 200 * 996; j++){
+            if(frequencies[i] == frequencies[j]){
+                results[counter] = j;
+                counter++;
+            }
+        }
+    }
+
+    unsigned int min = results[0];
+    for(unsigned i = 0; i<counter; i++){
+        if(results[i]< min){
+            min = results[i];
+        }
+    }
+
+    cout<< "Frequency that occurs twice first is: " << frequencies[min]<<endl;
     
     return 0;
 }
