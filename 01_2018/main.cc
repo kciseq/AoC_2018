@@ -2,11 +2,13 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
 int main ()
 {
+    auto start = chrono::high_resolution_clock::now();
     vector<int> deviation_list;
     vector<long> frequencies;
     ifstream input_file("input.txt");
@@ -25,25 +27,28 @@ int main ()
     }
     cout<< "Frequency deviation equals to: "<<frequency_deviation<<endl;
 
+    unsigned int count = input_list_len;
+
     while(searching){
-        for(unsigned int j = 0; j<input_list_len; j++){
-            frequency_deviation +=  deviation_list[j];
+            frequency_deviation +=  deviation_list[count%input_list_len];
             frequencies.push_back(frequency_deviation);
             for(unsigned int i = (frequencies.size() - 2); i>0; i--){
-                if(frequencies[j+(loop_count*input_list_len)] == frequencies[i]){
-                result = frequencies[j+(loop_count*input_list_len)];
+                if(frequencies[count] == frequencies[i]){
+                result = frequencies[count];
                 searching = false;
                 break;
                 }
             }
-            if(searching == false){
-                break;
-            }
+            count++;
         }
-        loop_count++;
-    }
-
     cout<< "Frequency that occurs twice first is: " << result <<endl;
+
+    auto stop = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::seconds>(stop - start);
+
+    cout << "Execution time in seconds is: " << duration.count() << endl; 
+
+
     
     return 0;
 }
