@@ -9,44 +9,41 @@ int main ()
 {
     vector<int> deviation_list;
     vector<long> frequencies;
-    vector<int> results;
     ifstream input_file("input.txt");
     int frequency_deviation = 0;
     int input_list;
-    string line;
+    size_t input_list_len = 0;
+    bool searching = true;
+    unsigned int loop_count = 1;
+    int result = 0;
     
-    unsigned int counter;
     while(input_file >> input_list){
         frequency_deviation += input_list;
         frequencies.push_back(frequency_deviation);
         deviation_list.push_back(input_list);
+        input_list_len++;
     }
     cout<< "Frequency deviation equals to: "<<frequency_deviation<<endl;
 
-    for(unsigned int i = 0; i < 199; i++){
-        for(unsigned int j = 0; j<996; j++){
+    while(searching){
+        for(unsigned int j = 0; j<input_list_len; j++){
             frequency_deviation +=  deviation_list[j];
             frequencies.push_back(frequency_deviation);
-        }
-    }
-
-    for(unsigned int i = 0; i < 200 * 996; i++){
-        for(unsigned int j = i+1; j < 200 * 996; j++){
-            if(frequencies[i] == frequencies[j]){
-                results.push_back(j);
-                counter++;
+            for(unsigned int i = (frequencies.size() - 2); i>0; i--){
+                if(frequencies[j+(loop_count*input_list_len)] == frequencies[i]){
+                result = frequencies[j+(loop_count*input_list_len)];
+                searching = false;
+                break;
+                }
+            }
+            if(searching == false){
+                break;
             }
         }
+        loop_count++;
     }
 
-    unsigned int min = results[0];
-    for(unsigned i = 0; i<counter; i++){
-        if(results[i]< min){
-            min = results[i];
-        }
-    }
-
-    cout<< "Frequency that occurs twice first is: " << frequencies[min]<<endl;
+    cout<< "Frequency that occurs twice first is: " << result <<endl;
     
     return 0;
 }
