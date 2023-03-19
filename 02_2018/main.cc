@@ -16,11 +16,15 @@ int main()
     std::vector<std::string> inputs;
     bool not_incremented_2;
     bool not_incremented_3;
+    bool found = false;
     std::vector<char*> counts(input_size);
     char* ptr = nullptr;
     
     int count_of_2 = 0, count_of_3 = 0;
     int result = 0;
+    int count = 0;
+
+    /***************************Reading the input data*****************************/
     while(input_file >> line){
         inputs.push_back(line);
         ptr = new char[kLenOfStr];
@@ -28,6 +32,7 @@ int main()
         input_size++;
     }
     
+    /****************************First part of the task***************************/
     for(unsigned int i = 0; i < input_size; i++)
     {
         for(unsigned int j = 0; j< kLenOfStr; j++)
@@ -55,5 +60,41 @@ int main()
     }
     result = count_of_2 * count_of_3;
     std::cout<< " Result is: " << result << endl;
+
+    /**********************Second part of the task**************************/
+    std::string result_string;
+    for(unsigned int i = 0; i < input_size; i++)
+    {
+        for(unsigned int j = i+1; j < input_size; j++)
+        {
+            ptr = new char[kLenOfStr];
+            count = 0;
+            for(unsigned int k = 0; k < kLenOfStr; k++)
+            {
+                if(inputs[i][k] == inputs[j][k])
+                {
+                    *(ptr+k) = 1;
+                    count++;
+                }
+            }
+            if(count == (kLenOfStr - 1))
+            {
+                for(unsigned int k = 0; k < kLenOfStr; k++)
+                {
+                    if(*(ptr+k) == 1)
+                    {
+                        result_string.push_back(inputs[i][k]);
+                    }
+                }
+                found = true;
+                break;
+            }
+            delete[] ptr;
+        }
+        if(found == true){
+            break;
+        }
+    }
+    std::cout<< " Result code is: " << result_string << endl;
     return 0;
 }
