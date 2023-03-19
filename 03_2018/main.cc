@@ -2,16 +2,18 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <vector>
 
 using namespace std;
 
 int fabric_map[1500][1500] = {0};
-int input_data[1267][4] = {0};
+int input_data[1267][5] = {0};
 
 void load_data(string path)
 {
     ifstream input_file(path);
     string line, offset_x, offset_y, width, height;
+    int elf_id;
     
     int i = 0;
     string str_element;
@@ -19,6 +21,9 @@ void load_data(string path)
         regex rgx("@");
         sregex_token_iterator iter(line.begin(),line.end(),rgx,-1);
         sregex_token_iterator end;
+        line = *iter;
+        line.erase(0,1);
+        elf_id = stoi(line);
         iter++;
         line = *iter;
         regex rgx2(":");
@@ -40,6 +45,7 @@ void load_data(string path)
         height = *iter4;
         input_data[i][2] = stoi(width);
         input_data[i][3] = stoi(height);
+        input_data[i][4] = elf_id;
         i++;
     }
 
@@ -48,6 +54,8 @@ void load_data(string path)
 int main()
 {
     int count_inches = 0;
+    std::vector<int> rows;
+    std::vector<int> cols;
     load_data("input.txt");
     for(int k = 0; k < 1267; k++)
     {
@@ -64,16 +72,44 @@ int main()
     {
         for (int j = 0; j < 1500; j++)
         {
-            if(fabric_map[i][j]>1)
+            if(fabric_map[i][j] > 1)
             {
                 count_inches++;
             }
         }
     }
+    
+    bool no_overlap = true;
+    int no_overlap_id;
+
+    for(int k = 0; k < 1267; k++)
+    {
+        no_overlap = true;
+        for(int i = input_data[k][1]; i < (input_data[k][1] + input_data[k][3]); i++)
+        {
+            for(int j = input_data[k][0]; j < (input_data[k][0] + input_data[k][2]); j++)
+            {
+                if(fabric_map[i][j] != 1)
+                {
+                    no_overlap = false;
+                    break;
+                }
+            }
+            if(no_overlap == false)
+            {
+                break;
+            }
+        }
+        if(no_overlap == true)
+        {
+            no_overlap_id = input_data[k][4];
+            break;
+        }
+    }
 
     cout<< "Result is: "<<count_inches<<endl;
-    
-    
+
+    cout<< "Not overlapping id is: "<< no_overlap_id <<endl;
     
     return 0;
 }
