@@ -13,14 +13,14 @@ struct myEventStructure{
     unsigned int definitiveTime;
 };
 
-std::vector<myEventStructure> events;
 
-void load_data(string path)
+
+void load_data(string path, std::vector<myEventStructure> &events)
 {
     myEventStructure event;
     ifstream input_file(path);
     string line;
-    string month, day, hour, minute, guard_number, event; // event -0 start shift, 1 falls asleep, 2 wakes up
+    string month, day, hour, minute, guard_number, event_type; // event -0 start shift, 1 falls asleep, 2 wakes up
     size_t len;
     
     
@@ -45,7 +45,7 @@ void load_data(string path)
         switch (input_data[i][0])
         {
         case 1:
-            time_min_definitive += 0*24*60;
+            time_min_definitive = 0;
             break;
         case 2:
             time_min_definitive += (31)*24*60;
@@ -84,7 +84,7 @@ void load_data(string path)
             break;
         }
 
-        time_min_definitive += (input_data[i][1]-1)*24*60;
+        time_min_definitive += (input_data[i][1] - 1)*24*60;
         time_min_definitive += (input_data[i][2])*60;
         time_min_definitive += (input_data[i][3]);
 
@@ -104,18 +104,46 @@ void load_data(string path)
             position = line.find(delim2,0);
             check = line.substr(1,position-1);
             input_data[i][5] = stoi(check);
+            event.guardId = input_data[i][5];
         }
+        event.eventType = input_data[i][4];
+        events.push_back(event);
         i++;
     }
 }
 
-void sort_data()
+void sort_data(std::vector<myEventStructure> &events)
 {
-
+    std::vector<myEventStructure> sorted_events;
+    for(unsigned int j = 0; j < events.size(); ++j)
+    {
+        unsigned int min_time = events[0].definitiveTime;
+        unsigned int index = 0;
+        for(unsigned int i = 0; i< events.size(); ++i)
+        {
+            if(events[i].definitiveTime < min_time)
+            {
+                min_time = events[i].definitiveTime;
+                index = i;
+            }
+        }
+        sorted_events.push_back(events[index]);
+        events[index].definitiveTime = UINT32_MAX;
+    }
+    events = sorted_events;
+    for(unsigned int i = 1; i < events.size(); ++i)
+    {
+        if(events[i].eventType != 0)
+        {
+            events[i].guardId = events[i-1].guardId;
+        }
+    }
 }
 
 int main(){
-    load_data("input.txt");
+    std::vector<myEventStructure> events;
+    load_data("input.txt", events);
+    sort_data(events);
 
     return 0;
 }
