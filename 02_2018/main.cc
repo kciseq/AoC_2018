@@ -17,18 +17,14 @@ int main()
     bool not_incremented_2;
     bool not_incremented_3;
     bool found = false;
-    std::vector<char*> counts(input_size);
-    char* ptr = nullptr;
     
-    int count_of_2 = 0, count_of_3 = 0;
-    int result = 0;
-    int count = 0;
+    unsigned int count_of_2 = 0, count_of_3 = 0;
+    unsigned int result = 0;
+    unsigned int count = 0;
 
     /***************************Reading the input data*****************************/
     while(input_file >> line){
         inputs.push_back(line);
-        ptr = new char[kLenOfStr];
-        counts.push_back(ptr);
         input_size++;
     }
     
@@ -38,25 +34,23 @@ int main()
         for(unsigned int j = 0; j< kLenOfStr; j++)
         {
             letters[inputs[i][j]]++;
-            *(counts[i]+j) = inputs[i][j];    
         }
         not_incremented_2 = true;
         not_incremented_3 = true;
-        for(unsigned int j = 0; j< kLenOfStr; j++)
+        for(unsigned int j = 'a'; j< 'z' + 1; j++)
         {
-           if((letters[*(counts[i]+j)] ==2) && not_incremented_2){
+           if((letters[j] ==2) && not_incremented_2){
                 count_of_2++;
-                letters[*(counts[i]+j)] =0;
+                letters[j] =0;
                 not_incremented_2 = false;
            }
-           if((letters[*(counts[i]+j)] ==3) && not_incremented_3){
+           if((letters[j] ==3) && not_incremented_3){
                 count_of_3++;
-                letters[*(counts[i]+j)] =0;
+                letters[j] =0;
                 not_incremented_3 = false;
            }
-           letters[*(counts[i]+j)] =0;
+           letters[j] =0;
         }
-        delete[] counts[i];
     }
     result = count_of_2 * count_of_3;
     std::cout<< " Result is: " << result << endl;
@@ -65,15 +59,15 @@ int main()
     std::string result_string;
     for(unsigned int i = 0; i < input_size; i++)
     {
+        std::array<char, kLenOfStr> mask {};
         for(unsigned int j = i+1; j < input_size; j++)
         {
-            ptr = new char[kLenOfStr];
             count = 0;
             for(unsigned int k = 0; k < kLenOfStr; k++)
             {
                 if(inputs[i][k] == inputs[j][k])
                 {
-                    *(ptr+k) = 1;
+                    mask[k] = 1;
                     count++;
                 }
             }
@@ -81,7 +75,7 @@ int main()
             {
                 for(unsigned int k = 0; k < kLenOfStr; k++)
                 {
-                    if(*(ptr+k) == 1)
+                    if(mask[k] == 1)
                     {
                         result_string.push_back(inputs[i][k]);
                     }
@@ -89,7 +83,6 @@ int main()
                 found = true;
                 break;
             }
-            delete[] ptr;
         }
         if(found == true){
             break;
