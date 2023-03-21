@@ -15,7 +15,7 @@ struct myEventStructure{
 
 
 
-void load_data(string path, std::vector<myEventStructure> &events)
+void load_data(string path, std::vector<myEventStructure> &events, std::vector<unsigned int> &ids)
 {
     myEventStructure event;
     ifstream input_file(path);
@@ -105,6 +105,16 @@ void load_data(string path, std::vector<myEventStructure> &events)
             check = line.substr(1,position-1);
             input_data[i][5] = stoi(check);
             event.guardId = input_data[i][5];
+            bool id_recorded = false;
+            for(unsigned int i = 0; i < ids.size(); ++i)
+            {
+                if(event.guardId == ids[i]){
+                    id_recorded = true;
+                }
+            }
+            if(id_recorded == false){
+                ids.push_back(event.guardId);
+            }    
         }
         event.eventType = input_data[i][4];
         events.push_back(event);
@@ -128,22 +138,71 @@ void sort_data(std::vector<myEventStructure> &events)
             }
         }
         sorted_events.push_back(events[index]);
+        if(sorted_events[sorted_events.size()-1].eventType != 0)
+        {
+            sorted_events[sorted_events.size()-1].guardId = sorted_events[sorted_events.size()-2].guardId;
+        }
         events[index].definitiveTime = UINT32_MAX;
     }
     events = sorted_events;
-    for(unsigned int i = 1; i < events.size(); ++i)
-    {
-        if(events[i].eventType != 0)
-        {
-            events[i].guardId = events[i-1].guardId;
-        }
-    }
 }
 
 int main(){
     std::vector<myEventStructure> events;
-    load_data("input.txt", events);
+    std::vector<unsigned int> ids;
+    //std::array<std::array<uint8_t,60>, 1000> asleep_data = {{}}; 
+    uint8_t asleep_data[10000][60] {};
+    unsigned int total_mins_asleep[10000];
+    load_data("input.txt", events, ids);
     sort_data(events);
-
+    for(unsigned int i = 1; i < events.size(); ++i)
+    {
+        // poprzedni i ten event to albo
+        // zaczyna zmiane, idzie spać - to mnie nie obchodzi
+        // idzie spać, budzi się - to jest najważniejsze
+        unsigned int minute_of_falling = 0;
+        unsigned int minute_of_waking = 0;
+        if((events[i].eventType == 2)&&((events[i-1].eventType == 1))){
+            minute_of_falling = ((events[i-1].definitiveTime)%(24*60)); //-23*60;
+            minute_of_waking = (events[i].definitiveTime%(24*60));//-23*60);
+            total_mins_asleep[events[i].guardId] = minute_of_waking - minute_of_falling;
+            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
+            {
+                asleep_data[events[i].guardId][j]++;
+            }
+        }
+        // idzie spać, zaczyna zmianę. to znaczy że zmiana się zaczęła następnego dnia
+        if((events[i].eventType == 0)&&((events[i-1].eventType == 1))){
+            minute_of_falling = (events[i-1].definitiveTime%(24*60));//-23*60);
+            minute_of_waking = 60;
+            total_mins_asleep[events[i-1].guardId] += minute_of_waking - minute_of_falling;
+            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
+            {
+                asleep_data[events[i-1].guardId][j]++;
+            }
+        }
+    }
+    // which guard slept the most
+    unsigned int max_time_slept = total_mins_asleep[ids[0]];
+    unsigned int guard_id = ids[0];
+    for(unsigned int i = 0; i < ids.size(); ++i)
+    {
+        if(total_mins_asleep[ids[i]] > max_time_slept){
+            max_time_slept = total_mins_asleep[ids[i]];
+            guard_id = ids[i];
+        }
+    }
+    // which minute he slept the most
+    uint8_t min_slept_most = 0;
+    uint8_t times_slept = 0;
+    for(unsigned int i = 0; i < 60; ++i)
+    {
+        if(asleep_data[guard_id][i] > times_slept){
+            min_slept_most = i;
+            times_slept = asleep_data[guard_id][i];
+        }
+    }
+    unsigned int result = guard_id * min_slept_most;
+    std::cout<< "Result is: " << result << std::endl;
     return 0;
 }
