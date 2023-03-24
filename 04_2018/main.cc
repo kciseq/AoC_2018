@@ -2,15 +2,22 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <array>
 
 using namespace std;
 
-int input_data[1040][6] = {0};
+int input_data[6] = {0};
 
 struct myEventStructure{
     int guardId;
     uint8_t eventType;
     unsigned int definitiveTime;
+};
+
+struct myGuardStructure{
+    std::vector<std::array<uint8_t,60>> asleep_data;
+    uint8_t minute_slept_most;
+    uint8_t times_slept_on_that_min;
 };
 
 
@@ -37,12 +44,12 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
         day = line.substr(9,2);
         hour = line.substr(12,2);
         minute = line.substr(15,2);
-        input_data[i][0] = stoi(month);
-        input_data[i][1] = stoi(day);
-        input_data[i][2] = stoi(hour);
-        input_data[i][3] = stoi(minute);
+        input_data[0] = stoi(month);
+        input_data[1] = stoi(day);
+        input_data[2] = stoi(hour);
+        input_data[3] = stoi(minute);
         // różne miesiące mają różną ilość dni i to mi psuje plan troche
-        switch (input_data[i][0])
+        switch (input_data[0])
         {
         case 1:
             time_min_definitive = 0;
@@ -84,27 +91,25 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
             break;
         }
 
-        time_min_definitive += (input_data[i][1] - 1)*24*60;
-        time_min_definitive += (input_data[i][2])*60;
-        time_min_definitive += (input_data[i][3]);
+        time_min_definitive += (input_data[1] - 1)*24*60;
+        time_min_definitive += (input_data[2])*60;
+        time_min_definitive += (input_data[3]);
 
         event.definitiveTime = time_min_definitive;
         
         if(line.substr(19,5) == "wakes"){
-        input_data[i][4] = 2;
-
-
+        input_data[4] = 2;
         }else if(line.substr(19,5) == "falls"){
-            input_data[i][4] = 1;
+            input_data[4] = 1;
 
         }else if(line.substr(19,5) == "Guard"){
-            input_data[i][4] = 0;
+            input_data[4] = 0;
             position = line.find(delim1,18);
             line.erase(0, position);            
             position = line.find(delim2,0);
             check = line.substr(1,position-1);
-            input_data[i][5] = stoi(check);
-            event.guardId = input_data[i][5];
+            input_data[5] = stoi(check);
+            event.guardId = input_data[5];
             bool id_recorded = false;
             for(unsigned int i = 0; i < ids.size(); ++i)
             {
@@ -116,7 +121,7 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
                 ids.push_back(event.guardId);
             }    
         }
-        event.eventType = input_data[i][4];
+        event.eventType = input_data[4];
         events.push_back(event);
         i++;
     }
@@ -150,11 +155,17 @@ void sort_data(std::vector<myEventStructure> &events)
 int main(){
     std::vector<myEventStructure> events;
     std::vector<unsigned int> ids;
-    //std::array<std::array<uint8_t,60>, 1000> asleep_data = {{}}; 
-    uint8_t asleep_data[10000][60] {};
+    std::array<std::array<uint8_t,60>, 10000> asleep_data; 
+
+    for(auto row : asleep_data){
+        row = {};
+    }
+
     unsigned int total_mins_asleep[10000];
+
     load_data("input.txt", events, ids);
     sort_data(events);
+
     for(unsigned int i = 1; i < events.size(); ++i)
     {
         // poprzedni i ten event to albo
@@ -182,6 +193,7 @@ int main(){
             }
         }
     }
+
     // which guard slept the most
     unsigned int max_time_slept = total_mins_asleep[ids[0]];
     unsigned int guard_id = ids[0];
@@ -204,5 +216,25 @@ int main(){
     }
     unsigned int result = guard_id * min_slept_most;
     std::cout<< "Result is: " << result << std::endl;
+
+    // which guard slept the most on the same minute
+    unsigned int index = ids[0];
+    min_slept_most = 0;
+    times_slept = 0;
+    for(unsigned int i = 0; i < ids.size(); ++i)
+    {
+        for(unsigned int j = 0; j < 60; ++j)
+        {
+            if(times_slept < asleep_data[ids[i]][j])
+            {
+                times_slept = asleep_data[ids[i]][j];
+                min_slept_most = j;
+                index = ids[i];
+            }
+        }
+    }
+    result = index * min_slept_most;
+
+    std::cout<< "Second result is: " << result << std::endl; 
     return 0;
 }
