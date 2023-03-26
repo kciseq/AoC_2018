@@ -6,8 +6,6 @@
 
 using namespace std;
 
-int input_data[6] = {0};
-
 struct myEventStructure{
     int guardId;
     uint8_t eventType;
@@ -15,9 +13,11 @@ struct myEventStructure{
 };
 
 struct myGuardStructure{
-    std::vector<std::array<uint8_t,60>> asleep_data;
+    int guardId;
+    std::array<unsigned int, 60> asleep_data;
     uint8_t minute_slept_most;
-    uint8_t times_slept_on_that_min;
+    unsigned int times_slept_on_that_min;
+    unsigned int total_mins_asleep;
 };
 
 
@@ -27,29 +27,21 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
     myEventStructure event;
     ifstream input_file(path);
     string line;
-    string month, day, hour, minute, guard_number, event_type; // event -0 start shift, 1 falls asleep, 2 wakes up
-    size_t len;
-    
-    
-    int i = 0;
+    string month, day, hour, minute, guard_number;
+    uint8_t event_type; // event: 0 start shift, 1 falls asleep, 2 wakes up
     string delim1 = "#";
     string delim2 = " ";
-    string check;
     size_t position = 0;
 
     while(getline(input_file, line)){
         unsigned int time_min_definitive = 0;
-        len = line.length();
         month = line.substr(6,2);
         day = line.substr(9,2);
         hour = line.substr(12,2);
         minute = line.substr(15,2);
-        input_data[0] = stoi(month);
-        input_data[1] = stoi(day);
-        input_data[2] = stoi(hour);
-        input_data[3] = stoi(minute);
-        // różne miesiące mają różną ilość dni i to mi psuje plan troche
-        switch (input_data[0])
+    
+        // different months have different day counts
+        switch (stoi(month))
         {
         case 1:
             time_min_definitive = 0;
@@ -91,26 +83,26 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
             break;
         }
 
-        time_min_definitive += (input_data[1] - 1)*24*60;
-        time_min_definitive += (input_data[2])*60;
-        time_min_definitive += (input_data[3]);
+        time_min_definitive += (stoi(day) - 1)*24*60;
+        time_min_definitive += (stoi(hour))*60;
+        time_min_definitive += (stoi(minute));
 
         event.definitiveTime = time_min_definitive;
         
         if(line.substr(19,5) == "wakes"){
-        input_data[4] = 2;
+        event_type = 2;
         }else if(line.substr(19,5) == "falls"){
-            input_data[4] = 1;
+            event_type = 1;
 
         }else if(line.substr(19,5) == "Guard"){
-            input_data[4] = 0;
+            event_type = 0;
             position = line.find(delim1,18);
             line.erase(0, position);            
             position = line.find(delim2,0);
-            check = line.substr(1,position-1);
-            input_data[5] = stoi(check);
-            event.guardId = input_data[5];
+            guard_number = line.substr(1,position-1);
+            event.guardId = stoi(guard_number);
             bool id_recorded = false;
+            // adding id to ids vector
             for(unsigned int i = 0; i < ids.size(); ++i)
             {
                 if(event.guardId == ids[i]){
@@ -121,9 +113,8 @@ void load_data(string path, std::vector<myEventStructure> &events, std::vector<u
                 ids.push_back(event.guardId);
             }    
         }
-        event.eventType = input_data[4];
+        event.eventType = event_type;
         events.push_back(event);
-        i++;
     }
 }
 
@@ -152,88 +143,117 @@ void sort_data(std::vector<myEventStructure> &events)
     events = sorted_events;
 }
 
+void get_data_on_guards(std::vector<myEventStructure> &sorted_events, std::vector<unsigned int> &ids, std::vector<myGuardStructure> &guard_data)
+{
+    unsigned int mins_asleep;
+    unsigned int index=0;
+
+    for(auto &id : ids){
+        myGuardStructure this_guard_data;
+        this_guard_data.total_mins_asleep = 0;
+        this_guard_data.guardId = id;
+        this_guard_data.asleep_data = {};
+        guard_data.push_back(this_guard_data);
+    }
+
+    for(unsigned int i = 1; i < sorted_events.size(); ++i)
+    {
+        // checking to which guard the event relates
+        for(unsigned int j = 0; j < ids.size(); ++j)
+        {
+            if(sorted_events[i].guardId == ids[j])
+            {
+                index = j;
+            }
+        }
+        // previous event and this event are:
+        // starts shift, falls asleep - irrelevant
+        // falls asleep, wakes up - relevant
+        unsigned int minute_of_falling = 0;
+        unsigned int minute_of_waking = 0;
+        if((sorted_events[i].eventType == 2)&&((sorted_events[i-1].eventType == 1))){
+            minute_of_falling = ((sorted_events[i-1].definitiveTime)%(24*60));
+            minute_of_waking = (sorted_events[i].definitiveTime%(24*60));
+            mins_asleep = minute_of_waking - minute_of_falling;
+            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
+            {
+                guard_data[index].asleep_data[j]++;
+            }
+            guard_data[index].total_mins_asleep += mins_asleep;
+        }
+
+        // falls asleep, another shift starts - relevant, means that waking minute is = 60
+        if((sorted_events[i].eventType == 0)&&((sorted_events[i-1].eventType == 1))){
+            minute_of_falling = (sorted_events[i-1].definitiveTime%(24*60));
+            minute_of_waking = 60;
+            
+            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
+            {
+                guard_data[index].asleep_data[j]++;
+            }
+            mins_asleep = minute_of_waking - minute_of_falling;
+            guard_data[index].total_mins_asleep += mins_asleep; 
+        }
+    }
+
+    for(auto &guard : guard_data)
+    {
+    // which minute he slept the most
+    uint8_t min_slept_most = 0;
+    unsigned int times_slept = 0;
+    for(unsigned int i = 0; i < 60; ++i)
+    {
+        if(guard.asleep_data[i] > times_slept){
+            min_slept_most = i;
+            times_slept = guard.asleep_data[i];
+        }
+    }
+    guard.minute_slept_most = min_slept_most;
+    guard.times_slept_on_that_min = times_slept;
+    }
+}
+
 int main(){
     std::vector<myEventStructure> events;
     std::vector<unsigned int> ids;
-    std::array<std::array<uint8_t,60>, 10000> asleep_data; 
+    std::vector<myGuardStructure> guard_data;
 
-    for(auto row : asleep_data){
-        row = {};
-    }
-
-    unsigned int total_mins_asleep[10000];
 
     load_data("input.txt", events, ids);
     sort_data(events);
+    get_data_on_guards(events, ids, guard_data);
 
-    for(unsigned int i = 1; i < events.size(); ++i)
+    unsigned int total_mins_asleep = guard_data[0].total_mins_asleep;
+    unsigned int interesting_id = guard_data[0].guardId;
+    unsigned int minute_slept_most = guard_data[0].minute_slept_most;
+    unsigned int times_slept_one_minute = guard_data[0].times_slept_on_that_min;
+
+    // find the guard that has most minutes asleep, which minute he sleeps most
+    for(auto &guard : guard_data)
     {
-        // poprzedni i ten event to albo
-        // zaczyna zmiane, idzie spać - to mnie nie obchodzi
-        // idzie spać, budzi się - to jest najważniejsze
-        unsigned int minute_of_falling = 0;
-        unsigned int minute_of_waking = 0;
-        if((events[i].eventType == 2)&&((events[i-1].eventType == 1))){
-            minute_of_falling = ((events[i-1].definitiveTime)%(24*60)); //-23*60;
-            minute_of_waking = (events[i].definitiveTime%(24*60));//-23*60);
-            total_mins_asleep[events[i].guardId] = minute_of_waking - minute_of_falling;
-            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
-            {
-                asleep_data[events[i].guardId][j]++;
-            }
-        }
-        // idzie spać, zaczyna zmianę. to znaczy że zmiana się zaczęła następnego dnia
-        if((events[i].eventType == 0)&&((events[i-1].eventType == 1))){
-            minute_of_falling = (events[i-1].definitiveTime%(24*60));//-23*60);
-            minute_of_waking = 60;
-            total_mins_asleep[events[i-1].guardId] += minute_of_waking - minute_of_falling;
-            for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
-            {
-                asleep_data[events[i-1].guardId][j]++;
-            }
+        if(guard.total_mins_asleep > total_mins_asleep)
+        {
+            total_mins_asleep = guard.total_mins_asleep;
+            interesting_id = guard.guardId;
+            minute_slept_most = guard.minute_slept_most;
         }
     }
 
-    // which guard slept the most
-    unsigned int max_time_slept = total_mins_asleep[ids[0]];
-    unsigned int guard_id = ids[0];
-    for(unsigned int i = 0; i < ids.size(); ++i)
-    {
-        if(total_mins_asleep[ids[i]] > max_time_slept){
-            max_time_slept = total_mins_asleep[ids[i]];
-            guard_id = ids[i];
-        }
-    }
-    // which minute he slept the most
-    uint8_t min_slept_most = 0;
-    uint8_t times_slept = 0;
-    for(unsigned int i = 0; i < 60; ++i)
-    {
-        if(asleep_data[guard_id][i] > times_slept){
-            min_slept_most = i;
-            times_slept = asleep_data[guard_id][i];
-        }
-    }
-    unsigned int result = guard_id * min_slept_most;
+    unsigned int result = interesting_id * minute_slept_most;
     std::cout<< "Result is: " << result << std::endl;
 
-    // which guard slept the most on the same minute
-    unsigned int index = ids[0];
-    min_slept_most = 0;
-    times_slept = 0;
-    for(unsigned int i = 0; i < ids.size(); ++i)
+    // find the guard that sleeps most on the same minute
+    for(auto &guard : guard_data)
     {
-        for(unsigned int j = 0; j < 60; ++j)
+        if(guard.times_slept_on_that_min > times_slept_one_minute)
         {
-            if(times_slept < asleep_data[ids[i]][j])
-            {
-                times_slept = asleep_data[ids[i]][j];
-                min_slept_most = j;
-                index = ids[i];
-            }
+            times_slept_one_minute = guard.times_slept_on_that_min;
+            interesting_id = guard.guardId;
+            minute_slept_most = guard.minute_slept_most;
         }
     }
-    result = index * min_slept_most;
+
+    result = interesting_id * minute_slept_most;
 
     std::cout<< "Second result is: " << result << std::endl; 
     return 0;
