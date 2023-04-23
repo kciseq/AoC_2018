@@ -22,9 +22,10 @@ int main()
     {
         ifstream input_file("input.txt");
         string line;
-        while(input_file >> line){
-        inputs.push_back(line);
-    }
+        while(input_file >> line)
+        {
+            inputs.push_back(line);
+        }
     }
     
     /****************************First part of the task***************************/
@@ -36,16 +37,16 @@ int main()
         }
         bool not_incremented_2 = true;
         bool not_incremented_3 = true;
-        for(unsigned int j = 'a'; j< 'z' + 1; j++)
+        for(unsigned int j = 'a'; j < 'z' + 1; j++)
         {
-           if((letters[j] ==2) && not_incremented_2){
+           if((letters[j] ==2) && not_incremented_2)
+           {
                 count_of_2++;
-                letters[j] =0;
                 not_incremented_2 = false;
            }
-           if((letters[j] ==3) && not_incremented_3){
+           if((letters[j] ==3) && not_incremented_3)
+           {
                 count_of_3++;
-                letters[j] =0;
                 not_incremented_3 = false;
            }
            letters[j] =0;
