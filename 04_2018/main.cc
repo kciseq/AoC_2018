@@ -6,13 +6,17 @@
 
 using namespace std;
 
-struct myEventStructure{
+enum EventType : unsigned char{
+    ShiftStart, FallingAsleep, WakingUp
+};
+
+struct Event{
     int guardId;
-    uint8_t eventType;
+    EventType eventType;
     unsigned int definitiveTime;
 };
 
-struct myGuardStructure{
+struct Guard{
     int guardId;
     std::array<unsigned int, 60> asleep_data;
     uint8_t minute_slept_most;
@@ -22,105 +26,64 @@ struct myGuardStructure{
 
 
 
-void load_data(string path, std::vector<myEventStructure> &events, std::vector<unsigned int> &ids)
+void load_data(string path, std::vector<Event> &events, std::vector<unsigned int> &ids)
 {
-    myEventStructure event;
     ifstream input_file(path);
     string line;
-    string month, day, hour, minute, guard_number;
-    uint8_t event_type; // event: 0 start shift, 1 falls asleep, 2 wakes up
-    string delim1 = "#";
-    string delim2 = " ";
-    size_t position = 0;
 
     while(getline(input_file, line)){
-        unsigned int time_min_definitive = 0;
-        month = line.substr(6,2);
-        day = line.substr(9,2);
-        hour = line.substr(12,2);
-        minute = line.substr(15,2);
-    
-        // different months have different day counts
-        switch (stoi(month))
-        {
-        case 1:
-            time_min_definitive = 0;
-            break;
-        case 2:
-            time_min_definitive += (31)*24*60;
-            break;
-        case 3:
-            time_min_definitive += ((1*31)+28)*24*60;
-            break;
-        case 4:
-            time_min_definitive += ((2*31)+28)*24*60;
-            break;
-        case 5:
-            time_min_definitive += ((2*31)+28+30)*24*60;
-            break;
-        case 6:
-            time_min_definitive += ((3*31)+28+30)*24*60;
-            break;
-        case 7:
-            time_min_definitive += ((3*31)+28+(2*30))*24*60;
-            break;
-        case 8:
-            time_min_definitive += ((4*31)+28+(2*30))*24*60;
-            break;           
-        case 9:
-            time_min_definitive += ((5*31)+28+(2*30))*24*60;
-            break;
-        case 10:
-            time_min_definitive += ((5*31)+28+(3*30))*24*60;
-            break;
-        case 11:
-            time_min_definitive += ((6*31)+28+(3*30))*24*60;
-            break;
-        case 12:
-            time_min_definitive += ((6*31)+28+(4*30))*24*60;
-            break;                
-        default:
-            break;
-        }
+        Event event;
+        string delim1 = "#";
+        string delim2 = " ";
+        size_t position = 0;
+        int month = stoi(line.substr(6,2));
+        int day = stoi(line.substr(9,2));
+        int hour = stoi(line.substr(12,2));
+        int minute = stoi(line.substr(15,2));
 
-        time_min_definitive += (stoi(day) - 1)*24*60;
-        time_min_definitive += (stoi(hour))*60;
-        time_min_definitive += (stoi(minute));
+        // different months have different day counts
+        unsigned int minutes_count_months[] = {0, (31)*24*60, ((1*31)+28)*24*60, ((2*31)+28)*24*60, ((2*31)+28+30)*24*60, ((3*31)+28+30)*24*60,
+        ((3*31)+28+(2*30))*24*60, ((4*31)+28+(2*30))*24*60, ((5*31)+28+(2*30))*24*60, ((5*31)+28+(3*30))*24*60, ((6*31)+28+(3*30))*24*60,
+        ((6*31)+28+(4*30))*24*60};
+    
+
+        unsigned int time_min_definitive = minutes_count_months[month - 1];
+
+        time_min_definitive += (day - 1)*24*60 + hour * 60 + minute;
 
         event.definitiveTime = time_min_definitive;
         
         if(line.substr(19,5) == "wakes"){
-        event_type = 2;
+        event.eventType = WakingUp;
         }else if(line.substr(19,5) == "falls"){
-            event_type = 1;
-
+            event.eventType = FallingAsleep;
         }else if(line.substr(19,5) == "Guard"){
-            event_type = 0;
+            event.eventType = ShiftStart;
             position = line.find(delim1,18);
             line.erase(0, position);            
             position = line.find(delim2,0);
-            guard_number = line.substr(1,position-1);
-            event.guardId = stoi(guard_number);
+            event.guardId = stoi(line.substr(1,position-1));
             bool id_recorded = false;
             // adding id to ids vector
-            for(unsigned int i = 0; i < ids.size(); ++i)
+            for(auto& id : ids)
             {
-                if(event.guardId == ids[i]){
+                if(event.guardId == id)
+                {
                     id_recorded = true;
                 }
             }
-            if(id_recorded == false){
+            if(id_recorded == false)
+            {
                 ids.push_back(event.guardId);
             }    
         }
-        event.eventType = event_type;
         events.push_back(event);
     }
 }
 
-void sort_data(std::vector<myEventStructure> &events)
+void sort_data(std::vector<Event> &events)
 {
-    std::vector<myEventStructure> sorted_events;
+    std::vector<Event> sorted_events;
     for(unsigned int j = 0; j < events.size(); ++j)
     {
         unsigned int min_time = events[0].definitiveTime;
@@ -143,13 +106,13 @@ void sort_data(std::vector<myEventStructure> &events)
     events = sorted_events;
 }
 
-void get_data_on_guards(std::vector<myEventStructure> &sorted_events, std::vector<unsigned int> &ids, std::vector<myGuardStructure> &guard_data)
+void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned int> &ids, std::vector<Guard> &guard_data)
 {
     unsigned int mins_asleep;
     unsigned int index=0;
 
     for(auto &id : ids){
-        myGuardStructure this_guard_data;
+        Guard this_guard_data;
         this_guard_data.total_mins_asleep = 0;
         this_guard_data.guardId = id;
         this_guard_data.asleep_data = {};
@@ -214,9 +177,9 @@ void get_data_on_guards(std::vector<myEventStructure> &sorted_events, std::vecto
 }
 
 int main(){
-    std::vector<myEventStructure> events;
+    std::vector<Event> events;
     std::vector<unsigned int> ids;
-    std::vector<myGuardStructure> guard_data;
+    std::vector<Guard> guard_data;
 
 
     load_data("input.txt", events, ids);
