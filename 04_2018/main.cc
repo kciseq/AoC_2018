@@ -1,10 +1,11 @@
+#include <array>
 #include <algorithm>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <array>
+
 
 enum EventType : unsigned char{
     ShiftStart, FallingAsleep, WakingUp
@@ -27,38 +28,40 @@ struct Guard{
     unsigned int total_mins_asleep;
 };
 
-void load_data(std::string path, std::vector<Event> &events, std::vector<unsigned int> &ids)
+void load_data(const std::string &path, std::vector<Event> &events, std::vector<unsigned int> &ids)
 {
     std::ifstream input_file(path);
     std::string line;
+    const unsigned minutes_per_day = 24 * 60;
+
+    const std::array<unsigned, 12> minutes_count_months = [](auto x){
+        std::array<unsigned, 12> result_array {0, 31, 28, 31, 30, 31, 31, 30, 31, 30, 31, 30};
+        for (auto i = 1u; i< result_array.size(); ++i){
+            result_array[i] *= minutes_per_day * x;
+            result_array[i] += result_array[i-1];
+        }
+        return result_array;
+    }(1);
 
     while(std::getline(input_file, line)){
         Event event;
         const char delim1 = '#';
         const char delim2 = ' ';
-        size_t position = 0;
-        int month = stoi(line.substr(6,2));
-        int day = stoi(line.substr(9,2));
-        int hour = stoi(line.substr(12,2));
-        int minute = stoi(line.substr(15,2));
+        const int month = stoi(line.substr(6,2));
+        const int day = stoi(line.substr(9,2));
+        const int hour = stoi(line.substr(12,2));
+        const int minute = stoi(line.substr(15,2));
+        const int minutes_this_month = (day - 1)*minutes_per_day + hour * 60 + minute;
 
-        // different months have different day counts
-        unsigned int minutes_count_months[] = {0, (31)*24*60, ((1*31)+28)*24*60, ((2*31)+28)*24*60, ((2*31)+28+30)*24*60, ((3*31)+28+30)*24*60,
-        ((3*31)+28+(2*30))*24*60, ((4*31)+28+(2*30))*24*60, ((5*31)+28+(2*30))*24*60, ((5*31)+28+(3*30))*24*60, ((6*31)+28+(3*30))*24*60,
-        ((6*31)+28+(4*30))*24*60};
-
-        event.definitiveTime = minutes_count_months[month - 1] + (day - 1)*24*60 + hour * 60 + minute;
-        
-        if(line.substr(19,5) == "wakes"){
+        event.definitiveTime = minutes_count_months[month - 1] + minutes_this_month;
+        const std::string_view line_fragment = std::string_view(line).substr(19,5);
+        if(line_fragment == "wakes"){
         event.eventType = WakingUp;
-        }else if(line.substr(19,5) == "falls"){
+        }else if(line_fragment == "falls"){
             event.eventType = FallingAsleep;
-        }else if(line.substr(19,5) == "Guard"){
+        }else if(line_fragment == "Guard"){
             event.eventType = ShiftStart;
-            position = line.find(delim1,18);
-            line.erase(0, position);            
-            position = line.find(delim2,0);
-            event.guardId = stoi(line.substr(1,position-1));
+            event.guardId = stoi(line.substr(line.find(delim1,0)+1,line.find(delim2, line.find(delim1,0))-1));
             bool id_recorded = false;
             // adding id to ids vector
             for(auto& id : ids)
@@ -77,7 +80,7 @@ void load_data(std::string path, std::vector<Event> &events, std::vector<unsigne
     }
 }
 
-void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned int> &ids, std::vector<Guard> &guard_data)
+void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned int> &ids, std::unordered_map<unsigned int, Guard> &data_map)
 {
     for(unsigned i = 1; i < sorted_events.size(); ++i){
         if(sorted_events[i].eventType == EventType::WakingUp || sorted_events[i].eventType == EventType::FallingAsleep){
@@ -93,19 +96,11 @@ void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned 
         this_guard_data.total_mins_asleep = 0;
         this_guard_data.guardId = id;
         this_guard_data.asleep_data = {};
-        guard_data.push_back(this_guard_data);
+        data_map[id] = this_guard_data;
     }
 
     for(unsigned int i = 1; i < sorted_events.size(); ++i)
     {
-        // checking to which guard the event relates
-        for(unsigned int j = 0; j < ids.size(); ++j)
-        {
-            if(sorted_events[i].guardId == ids[j])
-            {
-                index = j;
-            }
-        }
         // previous event and this event are:
         // starts shift, falls asleep - irrelevant
         // falls asleep, wakes up - relevant
@@ -117,9 +112,9 @@ void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned 
             mins_asleep = minute_of_waking - minute_of_falling;
             for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
             {
-                guard_data[index].asleep_data[j]++;
+                data_map[sorted_events[i].guardId].asleep_data[j]++;
             }
-            guard_data[index].total_mins_asleep += mins_asleep;
+            data_map[sorted_events[i].guardId].total_mins_asleep += mins_asleep;
         }
 
         // falls asleep, another shift starts - relevant, means that waking minute is = 60
@@ -129,27 +124,27 @@ void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned 
             
             for(unsigned int j = minute_of_falling; j < minute_of_waking; ++j)
             {
-                guard_data[index].asleep_data[j]++;
+                data_map[sorted_events[i-1].guardId].asleep_data[j]++;
             }
             mins_asleep = minute_of_waking - minute_of_falling;
-            guard_data[index].total_mins_asleep += mins_asleep; 
+            data_map[sorted_events[i-1].guardId].total_mins_asleep += mins_asleep; 
         }
     }
 
-    for(auto &guard : guard_data)
+    for(auto &guard : data_map)
     {
     // which minute he slept the most
     uint8_t min_slept_most = 0;
     unsigned int times_slept = 0;
     for(unsigned int i = 0; i < 60; ++i)
     {
-        if(guard.asleep_data[i] > times_slept){
+        if(guard.second.asleep_data[i] > times_slept){
             min_slept_most = i;
-            times_slept = guard.asleep_data[i];
+            times_slept = guard.second.asleep_data[i];
         }
     }
-    guard.minute_slept_most = min_slept_most;
-    guard.times_slept_on_that_min = times_slept;
+    guard.second.minute_slept_most = min_slept_most;
+    guard.second.times_slept_on_that_min = times_slept;
     }
 }
 
@@ -157,26 +152,24 @@ int main(){
     std::vector<Event> events;
     std::vector<unsigned int> ids;
     std::unordered_map<unsigned int, Guard> guards_map;
-    std::vector<Guard> guard_data;
-
 
     load_data("input.txt", events, ids);
     std::sort(events.begin(), events.end());
-    get_data_on_guards(events, ids, guard_data);
+    get_data_on_guards(events, ids, guards_map);
 
-    unsigned int total_mins_asleep = guard_data[0].total_mins_asleep;
-    unsigned int interesting_id = guard_data[0].guardId;
-    unsigned int minute_slept_most = guard_data[0].minute_slept_most;
-    unsigned int times_slept_one_minute = guard_data[0].times_slept_on_that_min;
+    unsigned int total_mins_asleep = guards_map[0].total_mins_asleep;
+    unsigned int interesting_id = guards_map[0].guardId;
+    unsigned int minute_slept_most = guards_map[0].minute_slept_most;
+    unsigned int times_slept_one_minute = guards_map[0].times_slept_on_that_min;
 
     // find the guard that has most minutes asleep, which minute he sleeps most
-    for(auto &guard : guard_data)
+    for(auto &guard : guards_map)
     {
-        if(guard.total_mins_asleep > total_mins_asleep)
+        if(guard.second.total_mins_asleep > total_mins_asleep)
         {
-            total_mins_asleep = guard.total_mins_asleep;
-            interesting_id = guard.guardId;
-            minute_slept_most = guard.minute_slept_most;
+            total_mins_asleep = guard.second.total_mins_asleep;
+            interesting_id = guard.second.guardId;
+            minute_slept_most = guard.second.minute_slept_most;
         }
     }
 
@@ -184,13 +177,13 @@ int main(){
     std::cout<< "Result is: " << result << std::endl;
 
     // find the guard that sleeps most on the same minute
-    for(auto &guard : guard_data)
+    for(auto &guard : guards_map)
     {
-        if(guard.times_slept_on_that_min > times_slept_one_minute)
+        if(guard.second.times_slept_on_that_min > times_slept_one_minute)
         {
-            times_slept_one_minute = guard.times_slept_on_that_min;
-            interesting_id = guard.guardId;
-            minute_slept_most = guard.minute_slept_most;
+            times_slept_one_minute = guard.second.times_slept_on_that_min;
+            interesting_id = guard.second.guardId;
+            minute_slept_most = guard.second.minute_slept_most;
         }
     }
 
