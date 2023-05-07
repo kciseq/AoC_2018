@@ -1,10 +1,10 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <array>
-
-using namespace std;
 
 enum EventType : unsigned char{
     ShiftStart, FallingAsleep, WakingUp
@@ -14,6 +14,9 @@ struct Event{
     int guardId;
     EventType eventType;
     unsigned int definitiveTime;
+    bool operator < (const Event& rhs) const {
+        return definitiveTime < rhs.definitiveTime;
+    }
 };
 
 struct Guard{
@@ -24,17 +27,15 @@ struct Guard{
     unsigned int total_mins_asleep;
 };
 
-
-
-void load_data(string path, std::vector<Event> &events, std::vector<unsigned int> &ids)
+void load_data(std::string path, std::vector<Event> &events, std::vector<unsigned int> &ids)
 {
-    ifstream input_file(path);
-    string line;
+    std::ifstream input_file(path);
+    std::string line;
 
-    while(getline(input_file, line)){
+    while(std::getline(input_file, line)){
         Event event;
-        string delim1 = "#";
-        string delim2 = " ";
+        const char delim1 = '#';
+        const char delim2 = ' ';
         size_t position = 0;
         int month = stoi(line.substr(6,2));
         int day = stoi(line.substr(9,2));
@@ -45,13 +46,8 @@ void load_data(string path, std::vector<Event> &events, std::vector<unsigned int
         unsigned int minutes_count_months[] = {0, (31)*24*60, ((1*31)+28)*24*60, ((2*31)+28)*24*60, ((2*31)+28+30)*24*60, ((3*31)+28+30)*24*60,
         ((3*31)+28+(2*30))*24*60, ((4*31)+28+(2*30))*24*60, ((5*31)+28+(2*30))*24*60, ((5*31)+28+(3*30))*24*60, ((6*31)+28+(3*30))*24*60,
         ((6*31)+28+(4*30))*24*60};
-    
 
-        unsigned int time_min_definitive = minutes_count_months[month - 1];
-
-        time_min_definitive += (day - 1)*24*60 + hour * 60 + minute;
-
-        event.definitiveTime = time_min_definitive;
+        event.definitiveTime = minutes_count_months[month - 1] + (day - 1)*24*60 + hour * 60 + minute;
         
         if(line.substr(19,5) == "wakes"){
         event.eventType = WakingUp;
@@ -81,33 +77,14 @@ void load_data(string path, std::vector<Event> &events, std::vector<unsigned int
     }
 }
 
-void sort_data(std::vector<Event> &events)
-{
-    std::vector<Event> sorted_events;
-    for(unsigned int j = 0; j < events.size(); ++j)
-    {
-        unsigned int min_time = events[0].definitiveTime;
-        unsigned int index = 0;
-        for(unsigned int i = 0; i< events.size(); ++i)
-        {
-            if(events[i].definitiveTime < min_time)
-            {
-                min_time = events[i].definitiveTime;
-                index = i;
-            }
-        }
-        sorted_events.push_back(events[index]);
-        if(sorted_events[sorted_events.size()-1].eventType != 0)
-        {
-            sorted_events[sorted_events.size()-1].guardId = sorted_events[sorted_events.size()-2].guardId;
-        }
-        events[index].definitiveTime = UINT32_MAX;
-    }
-    events = sorted_events;
-}
-
 void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned int> &ids, std::vector<Guard> &guard_data)
 {
+    for(unsigned i = 1; i < sorted_events.size(); ++i){
+        if(sorted_events[i].eventType == EventType::WakingUp || sorted_events[i].eventType == EventType::FallingAsleep){
+            sorted_events[i].guardId = sorted_events[i-1].guardId;
+        }       
+    }
+
     unsigned int mins_asleep;
     unsigned int index=0;
 
@@ -179,11 +156,12 @@ void get_data_on_guards(std::vector<Event> &sorted_events, std::vector<unsigned 
 int main(){
     std::vector<Event> events;
     std::vector<unsigned int> ids;
+    std::unordered_map<unsigned int, Guard> guards_map;
     std::vector<Guard> guard_data;
 
 
     load_data("input.txt", events, ids);
-    sort_data(events);
+    std::sort(events.begin(), events.end());
     get_data_on_guards(events, ids, guard_data);
 
     unsigned int total_mins_asleep = guard_data[0].total_mins_asleep;
