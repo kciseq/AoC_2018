@@ -1,76 +1,71 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <regex>
 #include <vector>
 
-using namespace std;
+const std::string input_path = "input.txt";
+unsigned int fabric_map[1500][1500] = {0};
 
-int fabric_map[1500][1500] = {0};
-int input_data[1267][5] = {0};
+struct Claim{
+unsigned int id;
+unsigned int offset_x;
+unsigned int offset_y;
+unsigned int width;
+unsigned int height;
+};
 
-void load_data(string path)
+void load_data(const std::string& path, std::vector<Claim>& claims_vector)
 {
-    ifstream input_file(path);
-    string line, offset_x, offset_y, width, height;
-    int elf_id;
+    std::ifstream input_file(path);
+    std::string line;
     
-    int i = 0;
-    string str_element;
     while(getline(input_file, line)){
-        regex rgx("@");
-        sregex_token_iterator iter(line.begin(),line.end(),rgx,-1);
-        sregex_token_iterator end;
-        line = *iter;
-        line.erase(0,1);
-        elf_id = stoi(line);
-        iter++;
-        line = *iter;
-        regex rgx2(":");
-        sregex_token_iterator iter2(line.begin(),line.end(),rgx2,-1);
-        offset_x = *iter2;
-        iter2++;
-        width = *iter2;
-        regex rgx3(",");
-        sregex_token_iterator iter3(offset_x.begin(),offset_x.end(),rgx3,-1);
-        offset_x = *iter3;
-        iter3++;
-        offset_y = *iter3;
-        input_data[i][0] = stoi(offset_x);
-        input_data[i][1] = stoi(offset_y);
-        regex rgx4("x");
-        sregex_token_iterator iter4(width.begin(),width.end(),rgx4,-1);
-        width = *iter4;
-        iter4++;
-        height = *iter4;
-        input_data[i][2] = stoi(width);
-        input_data[i][3] = stoi(height);
-        input_data[i][4] = elf_id;
-        i++;
+        Claim claim;
+
+        size_t delim_1_pos, delim_2_pos, delim_3_pos, delim_4_pos;
+        const char delim_1 = '@';
+        const char delim_2 = ',';
+        const char delim_3 = ':';
+        const char delim_4 = 'x';
+
+
+        delim_1_pos = line.find(delim_1);
+        delim_2_pos = line.find(delim_2);
+        delim_3_pos = line.find(delim_3);
+        delim_4_pos = line.find(delim_4);
+
+        claim.id = stoi(line.substr(1, delim_1_pos-1));
+        claim.offset_x = stoi(line.substr(delim_1_pos + 1, delim_2_pos - (delim_1_pos + 1)));
+        claim.offset_y = stoi(line.substr(delim_2_pos + 1, delim_3_pos - (delim_2_pos + 1)));
+        claim.width = stoi(line.substr(delim_3_pos + 1, delim_4_pos - (delim_3_pos + 1)));
+        claim.height = stoi(line.substr(delim_4_pos + 1, line.length() - (delim_4_pos + 1))); 
+
+        claims_vector.push_back(claim);
     }
 
 }
 
 int main()
 {
-    int count_inches = 0;
-    std::vector<int> rows;
-    std::vector<int> cols;
-    load_data("input.txt");
-    for(int k = 0; k < 1267; k++)
+    unsigned int count_inches = 0;
+
+    std::vector<Claim> input_claims;
+    load_data(input_path, input_claims);
+
+    for (auto& claim : input_claims)
     {
-        for(int i = input_data[k][1]; i < (input_data[k][1] + input_data[k][3]); i++)
-        {
-            for(int j = input_data[k][0]; j < (input_data[k][0] + input_data[k][2]); j++)
+        for(int i = claim.offset_y; i < (claim.offset_y + claim.height); ++i){
+            for(int j = claim.offset_x; j < (claim.offset_x + claim.width); ++j)
             {
                 fabric_map[i][j]++;
             }
         }
     }
 
-    for(int i = 0; i < 1500; i++)
+
+    for(unsigned int i = 0; i < 1500; ++i)
     {
-        for (int j = 0; j < 1500; j++)
+        for (unsigned int j = 0; j < 1500; ++j)
         {
             if(fabric_map[i][j] > 1)
             {
@@ -82,12 +77,12 @@ int main()
     bool no_overlap = true;
     int no_overlap_id;
 
-    for(int k = 0; k < 1267; k++)
+    for(auto& claim : input_claims)
     {
         no_overlap = true;
-        for(int i = input_data[k][1]; i < (input_data[k][1] + input_data[k][3]); i++)
+        for(unsigned int i = claim.offset_y; i < (claim.offset_y + claim.height); ++i)
         {
-            for(int j = input_data[k][0]; j < (input_data[k][0] + input_data[k][2]); j++)
+            for(unsigned int j = claim.offset_x; j < (claim.offset_x + claim.width); ++j)
             {
                 if(fabric_map[i][j] != 1)
                 {
@@ -102,14 +97,14 @@ int main()
         }
         if(no_overlap == true)
         {
-            no_overlap_id = input_data[k][4];
+            no_overlap_id = claim.id;
             break;
         }
     }
 
-    cout<< "Result is: "<<count_inches<<endl;
+    std::cout<< "Result is: "<< count_inches << std::endl;
 
-    cout<< "Not overlapping id is: "<< no_overlap_id <<endl;
+    std::cout<< "Not overlapping id is: "<< no_overlap_id << std::endl;
     
     return 0;
 }
